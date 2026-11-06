@@ -1,4 +1,9 @@
 {
+  "Reconnect": "Reconnect",
+  "Reconnect display": "Reconnect display",
+  "Reconnecting to the display…": "Reconnecting to the display…",
+  "Display is not responding. Restarting its USB device…": "Display is not responding. Restarting its USB device…",
+  "{0} Could not restart the display USB device. Administrator rights may be required.": "{0} Could not restart the display USB device. Administrator rights may be required.",
   "Water cooling display": "Water cooling display",
   "Searching for display": "Searching for display",
   "Pause": "Pause",

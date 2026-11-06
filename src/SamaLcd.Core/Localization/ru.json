@@ -1,4 +1,9 @@
 {
+  "Reconnect": "Переподключить",
+  "Reconnect display": "Переподключить экран",
+  "Reconnecting to the display…": "Переподключение экрана…",
+  "Display is not responding. Restarting its USB device…": "Экран не отвечает. Перезапуск его USB-устройства…",
+  "{0} Could not restart the display USB device. Administrator rights may be required.": "{0} Не удалось перезапустить USB-устройство экрана. Возможно, нужны права администратора.",
   "Water cooling display": "экран водяного охлаждения",
   "Searching for display": "поиск экрана",
   "Pause": "Пауза",

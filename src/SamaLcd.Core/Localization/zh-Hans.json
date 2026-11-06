@@ -1,4 +1,9 @@
 {
+  "Reconnect": "重新连接",
+  "Reconnect display": "重新连接屏幕",
+  "Reconnecting to the display…": "正在重新连接屏幕…",
+  "Display is not responding. Restarting its USB device…": "屏幕无响应，正在重启其 USB 设备…",
+  "{0} Could not restart the display USB device. Administrator rights may be required.": "{0} 无法重启屏幕的 USB 设备，可能需要管理员权限。",
   "Water cooling display": "水冷屏幕",
   "Searching for display": "正在查找屏幕",
   "Pause": "暂停",

@@ -31,6 +31,9 @@ public sealed class DisplayEngine : IDisposable
     private byte[]? _lastFrame;
     private bool _needFull = true;
     private volatile int _pendingBrightness = -1;
+    private volatile bool _reconnectRequested;
+    private bool _recoverUsb;             // restart the panel's USB device if the next connect fails
+    private int _connectFailures;
     private long _lastSensorUpdate;
     private long _lastStatusQuery;
 
@@ -262,6 +265,16 @@ public sealed class DisplayEngine : IDisposable
         _wake.Set();
     }
 
+    /// <summary>
+    /// Closes the port and connects to the panel again (on the display thread, with the next frame);
+    /// if the port does not open, the panel's USB device is restarted.
+    /// </summary>
+    public void Reconnect()
+    {
+        _reconnectRequested = true;
+        _wake.Set();
+    }
+
     public void Start()
     {
         if (_running) return;
@@ -308,6 +321,20 @@ public sealed class DisplayEngine : IDisposable
 
     private int Tick()
     {
+        if (!Paused && _reconnectRequested)
+        {
+            _reconnectRequested = false;
+            ReportStatus("Reconnecting to the display…");
+            Disconnect();
+            _recoverUsb = true;
+            _videoFailures = 0;
+            if (_streamingFallback != null)
+            {
+                _streamingFallback = null; // give playing the video on the panel another chance
+                ApplyBackgroundSettings();
+            }
+        }
+
         if (Environment.TickCount64 - _lastSensorUpdate >= 1000)
         {
             _sensors.Update();
@@ -558,18 +585,59 @@ public sealed class DisplayEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Connects to the panel. When that fails after the reconnect button, or three times in a row on its own,
+    /// the panel's USB device is restarted (it can get stuck so that its port no longer opens) and connecting is retried.
+    /// </summary>
     private void EnsureConnected()
     {
         if (_device != null) return;
+        bool recover = _recoverUsb;
+        _recoverUsb = false;
+        try
+        {
+            Connect();
+        }
+        catch (Exception e) when (_running && (recover || ++_connectFailures % 3 == 0))
+        {
+            Log?.Invoke($"Connect failed: {e.Message}");
+            ReportStatus("Display is not responding. Restarting its USB device…");
+            if (!PortLocator.RestartUsb(s => Log?.Invoke(s)))
+                throw new IOException(L.Get("{0} Could not restart the display USB device. Administrator rights may be required.", e.Message), e);
+            for (int attempt = 1; ; attempt++)
+            {
+                Thread.Sleep(2000); // the panel needs a moment to show up again
+                try
+                {
+                    Connect();
+                    break;
+                }
+                catch (Exception) when (attempt < 5 && _running) { }
+            }
+        }
+        _connectFailures = 0;
+    }
+
+    private void Connect()
+    {
         ReportStatus("Searching for display…");
         var port = string.IsNullOrWhiteSpace(_settings.Port) ? null : _settings.Port;
-        _device = LcdDevice.Connect(port, _settings.Width, _settings.Height, s => Log?.Invoke(s));
+        var device = LcdDevice.Connect(port, _settings.Width, _settings.Height, s => Log?.Invoke(s));
+        try
+        {
+            device.FullFrameDelayMs = _settings.FullFrameDelayMs;
+            device.StopPlayback();
+            Storage = device.StorageInfo();
+            device.SetBrightness(_settings.Brightness, _settings.BrightnessScale);
+        }
+        catch
+        {
+            device.Dispose();
+            throw;
+        }
+        _device = device;
         lock (_sync) SdCard = new("", null, SdCard.Busy, null);
         SdCardChanged?.Invoke();
-        _device.FullFrameDelayMs = _settings.FullFrameDelayMs;
-        _device.StopPlayback();
-        Storage = _device.StorageInfo();
-        _device.SetBrightness(_settings.Brightness, _settings.BrightnessScale);
         _pendingBrightness = -1;
         _needFull = true;
         _lastFrame = null;

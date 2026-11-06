@@ -1,4 +1,9 @@
 {
+  "Reconnect": "再接続",
+  "Reconnect display": "ディスプレイに再接続",
+  "Reconnecting to the display…": "ディスプレイに再接続中…",
+  "Display is not responding. Restarting its USB device…": "ディスプレイが応答しません。USB デバイスを再起動中…",
+  "{0} Could not restart the display USB device. Administrator rights may be required.": "{0} ディスプレイの USB デバイスを再起動できませんでした。管理者権限が必要な場合があります。",
   "Water cooling display": "水冷ディスプレイ",
   "Searching for display": "ディスプレイを検索中",
   "Pause": "一時停止",

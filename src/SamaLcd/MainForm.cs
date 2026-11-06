@@ -36,7 +36,7 @@ sealed class MainForm : Form
     private readonly NotifyIcon _tray;
     private readonly ToolStripMenuItem _themesMenu = new();
     private readonly ToolStripMenuItem _pauseMenu = new();
-    private readonly ToolStripMenuItem _openMenu = new(), _exitMenu = new();
+    private readonly ToolStripMenuItem _openMenu = new(), _reconnectMenu = new(), _exitMenu = new();
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly object _frameLock = new();
     private Bitmap? _lastFrame;
@@ -87,6 +87,8 @@ sealed class MainForm : Form
         menu.Items.Add(_openMenu);
         menu.Items.Add(_themesMenu);
         menu.Items.Add(_pauseMenu);
+        _reconnectMenu.Click += (_, _) => Reconnect();
+        menu.Items.Add(_reconnectMenu);
         menu.Items.Add(new ToolStripSeparator());
         _exitMenu.Click += (_, _) => ExitApp();
         menu.Items.Add(_exitMenu);
@@ -260,6 +262,7 @@ sealed class MainForm : Form
                     Directory.CreateDirectory(_settings.ResolvedGalleryDirectory);
                     Process.Start("explorer.exe", _settings.ResolvedGalleryDirectory);
                     break;
+                case "reconnect": Reconnect(); break;
                 case "reloadGallery": PostState(); break;
                 case "reloadThemes":
                     LoadThemeList();
@@ -808,6 +811,7 @@ sealed class MainForm : Form
     private void ApplyLanguage()
     {
         _openMenu.Text = L.Get("Open");
+        _reconnectMenu.Text = L.Get("Reconnect display");
         _exitMenu.Text = L.Get("Exit");
         _themesMenu.Text = L.Get("Variant");
         _pauseMenu.Text = L.Get("Pause");
@@ -824,6 +828,14 @@ sealed class MainForm : Form
         if (!paused) _engine.Invalidate();
         PostState();
         PostStatus();
+    }
+
+    /// <summary>Reopens the port; a paused screen is resumed, since the engine only connects while running.</summary>
+    private void Reconnect()
+    {
+        AppLog.Info("ui.reconnect");
+        _engine.Reconnect();
+        if (_engine.Paused) SetPaused(false);
     }
 
     private void ShowWindow()
