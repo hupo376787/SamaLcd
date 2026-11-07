@@ -513,17 +513,19 @@ sealed class MainForm : Form
             return;
         }
         // Over a video played by the panel itself the frame is transparent: the page plays the file underneath.
-        var media = _engine.Media is { } m ? MediaOf(m.Prepared ?? m.Source, m.Prepared != null ? ImageFit.Stretch : m.Fit) : null;
+        var playback = _engine.Media;
+        var media = playback is { } m ? MediaOf(m.Prepared ?? m.Source, m.Prepared != null ? ImageFit.Stretch : m.Fit) : null;
+        if (media != null) media = media with { PlaybackSeconds = playback!.PlaybackSeconds };
         string data;
         lock (_frameLock)
         {
             if (_lastFrame == null) return;
-            data = ToDataUrl(_lastFrame, transparent: _engine.Media != null);
+            data = ToDataUrl(_lastFrame, transparent: playback != null);
         }
         Post(new { type = "frame", data, media });
     }
 
-    private sealed record Media(string Url, string Kind, ImageFit Fit);
+    private sealed record Media(string Url, string Kind, ImageFit Fit, double? PlaybackSeconds = null);
     private sealed record Thumb(string Image, Media? Media);
     private sealed record GalleryItem(string File, string Name, Media Media);
 

@@ -204,7 +204,7 @@ public sealed class DisplayEngine : IDisposable
     }
 
     private sealed record VideoRequest(string Source, ImageFit Fit, int Rotation, SquareCrop? Crop);
-    private sealed record ActiveVideo(VideoRequest Request, string LocalPath, string RemotePath);
+    private sealed record ActiveVideo(VideoRequest Request, string LocalPath, string RemotePath, long StartedAt);
 
     /// <summary>
     /// The animated background the panel plays by itself, or null. Frames are then rendered without it
@@ -217,7 +217,8 @@ public sealed class DisplayEngine : IDisposable
             lock (_sync)
             {
                 var active = _activeVideo;
-                return _wantedVideo is { } v ? new PreviewMedia(v.Source, v.Fit, active?.Request == v ? active.LocalPath : null, v.Crop) : null;
+                return _wantedVideo is { } v ? new PreviewMedia(v.Source, v.Fit, active?.Request == v ? active.LocalPath : null, v.Crop,
+                    active?.Request == v ? Math.Max(0, Environment.TickCount64 - active.StartedAt) / 1000.0 : null) : null;
             }
         }
     }
@@ -420,6 +421,7 @@ public sealed class DisplayEngine : IDisposable
         {
             _device!.StopPlayback();
             _device.PlayVideo(video.RemotePath);
+            _activeVideo = video with { StartedAt = Environment.TickCount64 };
             _needFull = true;
             _lastFrame = null;
         }
@@ -456,11 +458,13 @@ public sealed class DisplayEngine : IDisposable
             return;
         }
         string remote;
+        long startedAt;
         try
         {
             lock (_sync) if (!_running || _wantedVideo != wanted) throw new OperationCanceledException();
             remote = EnsureUploaded(prepared, wanted);
             _device!.PlayVideo(remote);
+            startedAt = Environment.TickCount64;
             Storage = _device.StorageInfo();
         }
         catch (OperationCanceledException)
@@ -481,7 +485,7 @@ public sealed class DisplayEngine : IDisposable
             return;
         }
         _videoFailures = 0;
-        _activeVideo = new ActiveVideo(wanted, prepared.LocalPath, remote);
+        _activeVideo = new ActiveVideo(wanted, prepared.LocalPath, remote, startedAt);
         ReportStatus("Playing video on display: {0}", Path.GetFileName(wanted.Source));
     }
 
@@ -664,4 +668,4 @@ public sealed class DisplayEngine : IDisposable
 
 /// <param name="Source">The file chosen by the user.</param>
 /// <param name="Prepared">The converted MP4 the panel plays, once it is ready.</param>
-public sealed record PreviewMedia(string Source, ImageFit Fit, string? Prepared, SquareCrop? Crop = null);
+public sealed record PreviewMedia(string Source, ImageFit Fit, string? Prepared, SquareCrop? Crop = null, double? PlaybackSeconds = null);

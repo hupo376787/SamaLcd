@@ -249,12 +249,31 @@ function mediaHtml(m, still = false) {
     : `<img src="${esc(m.url)}" style="${style}" alt="">`;
 }
 
-/** Keeps the playing background in place between frames; only a different file restarts it. */
+/** Keep the background element while correcting its clock to the panel's last confirmed start. */
 function setMedia(el, m) {
+  el.playbackClock = Number.isFinite(m?.playbackSeconds)
+    ? {seconds: m.playbackSeconds, receivedAt: performance.now()} : null;
   const key = m ? `${m.url}|${m.fit}` : '';
-  if (el.dataset.key === key) return;
-  el.dataset.key = key;
-  el.innerHTML = mediaHtml(m);
+  if (el.dataset.key !== key) {
+    el.dataset.key = key;
+    el.innerHTML = mediaHtml(m);
+    const video = el.querySelector('video');
+    if (video) {
+      video.onloadedmetadata = () => synchronizePreview(el);
+      video.oncanplay = () => synchronizePreview(el);
+    }
+  }
+  synchronizePreview(el);
+}
+
+function synchronizePreview(el) {
+  const clock = el.playbackClock, video = el.querySelector('video');
+  if (!clock || !video || !Number.isFinite(video.duration) || video.duration <= 0 || video.seeking) return;
+  const target = (clock.seconds + (performance.now() - clock.receivedAt) / 1000) % video.duration;
+  const difference = Math.abs(video.currentTime - target);
+  // Compare across the loop boundary and allow small decode/USB latency without constant seeking.
+  if (Math.min(difference, video.duration - difference) > 0.5) video.currentTime = target;
+  if (video.paused) video.play().catch(() => {});
 }
 
 function renderGallery(s) {
